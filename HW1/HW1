@@ -1,1 +1,102 @@
-HW 1 assigment.
+Data Wrangling QBS 181
+Homework 1
+	
+Instructions:
+Print random 10 rows to show these changes. Please also include the code
+Insert the answers directly into this document.
+You may collaborate on the homework but you must write it up yourselves.
+Please save the files in this format:
+Name of the file should be username(database)_HW1_QBS181
+Submit it via Canvas.				
+
+Rename all the columns for eg.,
+TriAge to Age
+GenderCode to Gender
+ContactID to ID
+Address1Stateorprovince to State
+TriImagineCareenrollmentemailsentdate to EmailSentdate
+Trienrollmentcompletedate to Completedate
+
+exec sp_rename '[dwuelfing].demographics.tri_age' , 'Age', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.gendercode' , 'Gender', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.contactid' , 'ID', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.Address1_Stateorprovince' , 'State', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.Tri_ImagineCareenrollmentemailsentdate' , 'EmailSentDate', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.Trienrollmentcompletedate' , 'CompleteDate', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.parentcustomeridname' , 'Affiliation', 'COLUMN'
+exec sp_rename '[dwuelfing].demographics.Tri_ImagineCareenrollmentstatus' , ‘Enrollment_Status', ‘COLUMN’
+exec sp_rename '[dwuelfing].demographics.Tri_EnrollmentCompleteDate' , 'CompleteDate', 'COLUMN'
+
+Calculate the time (in days) to complete enrollment and create a new column to have this data  I did this in three parts: query, add new column, update new column.
+
+SELECT DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate)) FROM dwuelfing.demographics
+where EmailSentDate <> 'NULL' and CompleteDate <> ‘NULL'
+
+SELECT avg(DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate))) FROM dwuelfing.demographics
+where EmailSentDate <> 'NULL' and CompleteDate <> 'NULL'
+
+Alter table [dwuelfing].demographics
+Add DaysToEnrollment int
+
+Update [dwuelfing].demographics  
+Set DaysToEnrollment = DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate))
+where EmailSentDate <> 'NULL' and CompleteDate <> 'NULL'
+
+Create a new column “Enrollment Status” 
+ALTER TABLE [dwuelfing].demographics
+  ADD EnrollmentStatus nvarchar(50)
+
+Insert Status=Complete :code is 167410011
+Insert Status=Email sent :code is 167410001
+Insert Status=Non responder: Code is 167410004
+Insert Status=Facilitated Enrollment: Code  is 167410005
+Insert Status= Incomplete Enrollments: Code  is 167410002
+Insert Status= Opted Out: Code  is 167410003
+Insert Status= Unprocessed: Code  is 167410000
+Insert Status= Second email sent : Code  is 167410006
+I created a new car char column (above) and then converted my original column to be an nvarchar (below), and finally updated the values in the new column based off the values in my original column.
+
+ALTER TABLE [dwuelfing].demographics
+ALTER COLUMN Enrollment_Status int;
+
+ALTER TABLE [dwuelfing].demographics
+ALTER COLUMN Enrollment_Status nvarchar (50);
+
+Set EnrollmentStatus = 
+CASE WHEN Enrollment_Status = '167410011' THEN  'Complete' 
+WHEN Enrollment_Status = '167410001' THEN 'Email sent' 
+WHEN  Enrollment_Status = '167410004' THEN 'Non responder' 
+WHEN  Enrollment_Status = '167410005' THEN 'Facilitated Enrollment' 
+WHEN  Enrollment_Status = '167410003' THEN 'Opted Out' 
+WHEN Enrollment_Status = '1674100002' THEN 'Unprocessed' 
+WHEN Enrollment_Status = '167410006' THEN 'Second email sent' 
+END 
+
+Create a new Column “Sex”
+Insert sex=female if code=2
+Insert sex=male if code=1
+Insert sex=other if code =167410000
+Insert sex=Unknown if code =’NULL’
+Alter table [dwuelfing].demographics
+Add Sex nvarchar(50)
+
+update dwuelfing.demographics
+set sex = 
+case when gender = 1 then 'Male'
+when gender = 2 then 'Female'
+when gender = 167410000 then 'Other'
+when gender IS NULL then 'Unknown'
+end
+
+Create a new column “Age group” and create age groups with an interval of 25 yrs. for example 0-25 years as ‘0-25’, 26-50 as “26-50” and so on...
+    
+Alter table [dwuelfing].demographics
+Add AgeGroup nvarchar(50)
+    update dwuelfing.demographics
+set AgeGroup = 
+case when Age between 0 and 25 then '0-25'
+when Age between 26 and 50 then '26-50'
+when Age between 51 and 75 then '51-75'
+when Age between 76 and 100 then '76-100'
+end
+

@@ -1,0 +1,322 @@
+install.packages("haven")
+install.packages("sqldf")
+install.packages("mltools")
+
+library(haven)
+library(sqldf)
+library(tidyverse)
+library(mltools)
+library(data.table)
+
+DIQ_I<-read_xpt("DIQ_I.xpt")
+
+head(DIQ_I)
+summary(DIQ_I)
+nrow(DIQ_I)
+ncol(DIQ_I)
+colnames(DIQ_I)
+str(DIQ_I)
+
+#sqldf("select * from DIQ_I")
+sqldf("select count(*) from DIQ_I")
+sqldf("select count(distinct(SEQN)) from DIQ_I")
+sum(is.na(DIQ_I))
+
+#Now I'll look at how the NA's are dispersed throughout the data set.
+columnNAsums<-colSums(is.na(DIQ_I))
+columnNAsums
+hist(columnNAsums)
+#I can see that the majority of the columns have thousands of NA's.
+#This is one of the primary issues with the data that I will address! 
+#I will use methods of mean imputation and one hot encoding to do so.
+
+#Now I'll check out how the NA's are dispersed throughout rows.
+rowNAsums<- rowSums(is.na(DIQ_I))
+hist(rowNAsums)
+mostlynullrows<- as.data.frame(x = rowNAsums, col.names = rowSums) %>%
+  filter (rowNAsums >45) %>%
+  arrange(rowNAsums)
+sqldf("select count(*) from mostlynullrows")
+#I could see that the majority of  participants had more than 45 missing values.
+#I used SQL to quantify that - there were 7597 participants with more than 45 
+#NA values in their row.
+
+sqldf("select count(distinct(SEQN)) from DIQ_I")
+which(is.na(DIQ_I$SEQN))
+str(DIQ_I$SEQN)
+
+catnames<- c('DIQ010', 'DIQ160', 'DIQ170', 'DIQ172', 'DIQ175A', 'DIQ175B', 'DIQ175C', 
+             'DIQ175D', 'DIQ175E', 'DIQ175F', 'DIQ175G', 'DIQ175H', 'DIQ175I', 'DIQ175J', 
+             'DIQ175K', 'DIQ175L', 'DIQ175M', 'DIQ175N', 'DIQ175O', 'DIQ175P', 'DIQ175Q', 
+             'DIQ175R', 'DIQ175S', 'DIQ175T', 'DIQ175U', 'DIQ175V', 'DIQ175W', 'DIQ175X', 
+             'DIQ180', 'DIQ050', 'DIQ070', 'DIQ230', 'DIQ240', 'DIQ275', 'DIQ291', 'DIQ360', 
+             'DIQ080')
+DIQ_I[catnames] <- lapply(DIQ_I[catnames], as.factor)
+str(DIQ_I)
+
+sqldf("select DIQ010, count(*) from DIQ_I
+group by DIQ010")
+
+sqldf("select DIQ160, count(*) from DIQ_I
+group by DIQ160")
+
+sqldf("select DIQ170, count(*) from DIQ_I
+group by DIQ170")
+
+sqldf("select DIQ172, count(*) from DIQ_I
+group by DIQ172")
+
+sqldf("select DIQ180, count(*) from DIQ_I
+group by DIQ180")
+
+sqldf("select DIQ050, count(*) from DIQ_I
+group by DIQ050")
+
+sqldf("select DIQ070, count(*) from DIQ_I
+group by DIQ070")
+
+sqldf("select DIQ230, count(*) from DIQ_I
+group by DIQ230")
+
+sqldf("select DIQ240, count(*) from DIQ_I
+group by DIQ240")
+
+sqldf("select DIQ275, count(*) from DIQ_I
+group by DIQ275")
+
+sqldf("select DIQ291, count(*) from DIQ_I
+group by DIQ291")
+
+sqldf("select DIQ360, count(*) from DIQ_I
+group by DIQ360")
+
+sqldf("select DIQ080, count(*) from DIQ_I
+group by DIQ080")
+
+#For items DIQ175A-DIQ175X, we can streamline our check and skip the grouping level,
+#since there is only one distinct value per column and the rest are NA's.
+sqldf("select count(DIQ175A), count(DIQ175B), count(DIQ175C), count(DIQ175D), count(DIQ175E), 
+count(DIQ175F), count(DIQ175G), count(DIQ175H), count(DIQ175I), count(DIQ175J), count(DIQ175K),
+count(DIQ175L), count(DIQ175M), count(DIQ175N), count(DIQ175O), count(DIQ175P), count(DIQ175Q), 
+count(DIQ175R), count(DIQ175S), count(DIQ175T), count(DIQ175U), count(DIQ175V), count(DIQ175W), 
+count(DIQ175X) from DIQ_I")
+
+tableD<- data.table(DIQ_I)
+DIQ_I<-one_hot(tableD, sparsifyNAs = TRUE)
+
+head(DIQ_I)
+sqldf("select count(*) from DIQ_I where DIQ010_1 = 1")
+sqldf("select count(*) from DIQ_I where DIQ010_2 = 1")
+sqldf("select count(*) from DIQ_I where DIQ010_3 = 1")
+sqldf("select count(*) from DIQ_I where DIQ010_9 = 1")
+
+#Creating three new combined "C" columns for these column pairs that will be set to NA initially:
+DIQ_I<- DIQ_I %>%
+  mutate(DID350C = NA, DID260C = NA, DID060C = NA)
+
+#Using ifelse logic to populate new columns from original columns
+DIQ_I<- DIQ_I %>%
+  mutate(DID350C = ifelse(DIQ350U == 1, DID350*1, ifelse(DIQ350U == 2, DID350/7, 
+        ifelse( DIQ350U == 3, DID350/30.4, ifelse(DIQ350U == 4, DID350/365,
+        ifelse(DID350==0,0,NA))))))
+
+DIQ_I<- DIQ_I %>%
+mutate(DID260C = ifelse(DIQ260U == 1, DID260*1, ifelse(DIQ260U == 2, DID260/7, 
+       ifelse( DIQ260U == 3, DID260/30.4, ifelse(DIQ260U == 4, DID260/365,
+       ifelse(DID260==0,0,NA))))))
+
+DIQ_I<- DIQ_I %>%
+  mutate(DID060C = ifelse(DIQ060U == 1, DID060/12, ifelse(DIQ060U == 2, DID060*1,
+        ifelse(DID060==0,0,NA))))
+
+head(DIQ_I)
+#We can now drop the original 6 columns, since we've confirmed our new columns look good.
+DIQ_I$DID350<- NULL
+DIQ_I$DIQ350U<- NULL
+DIQ_I$DID260<- NULL
+DIQ_I$DIQ260U<- NULL
+DIQ_I$DID060<- NULL
+DIQ_I$DIQ060U<- NULL
+
+sqldf("select DID040, count(*) from DIQ_I
+              group by DID040")
+
+#Updating code 666 to reflect an age of 0
+DIQ_I$DID040[DIQ_I$DID040 ==666] <-0
+#Converting "Don't know" to NA
+DIQ_I$DID040[DIQ_I$DID040 ==999] <-NA
+#Reviewing my updates
+sqldf("select DID040, count(*) from DIQ_I
+              group by DID040")
+
+summary(DIQ_I$DID040)
+plot(DIQ_I$DID040)
+boxplot(DIQ_I$DID040)
+hist(DIQ_I$DID040)
+
+DIQ_I$DID040[is.na(DIQ_I$DID040)]<- mean(DIQ_I$DID040, na.rm = TRUE)
+
+sqldf("select DID250, count(*) from DIQ_I
+              group by DID250")
+
+#Converting "Don't Know" to NA
+DIQ_I$DID250[DIQ_I$DID250 ==9999] <-NA
+
+summary(DIQ_I$DID250)
+plot(DIQ_I$DID250)
+boxplot(DIQ_I$DID250)
+hist(DIQ_I$DID250)
+
+DIQ_I$DID250[is.na(DIQ_I$DID250)]<- mean(DIQ_I$DID250, na.rm = TRUE)
+
+sqldf("select DIQ280, count(*) from DIQ_I
+              group by DIQ280")
+
+DIQ_I$DIQ280[DIQ_I$DIQ280 ==777] <-NA
+DIQ_I$DIQ280[DIQ_I$DIQ280 ==999] <-NA
+
+summary(DIQ_I$DIQ280)
+plot(DIQ_I$DIQ280)
+boxplot(DIQ_I$DIQ280)
+hist(DIQ_I$DIQ280)
+
+DIQ_I$DIQ280[is.na(DIQ_I$DIQ280)]<- mean(DIQ_I$DIQ280, na.rm = TRUE)
+
+sqldf("select DIQ300S, count(*) from DIQ_I
+              group by DIQ300S")
+
+DIQ_I$DIQ300S[DIQ_I$DIQ300S ==7777] <-NA
+DIQ_I$DIQ300S[DIQ_I$DIQ300S ==9999] <-NA
+
+summary(DIQ_I$DIQ300S)
+plot(DIQ_I$DIQ300S)
+boxplot(DIQ_I$DIQ300S)
+hist(DIQ_I$DIQ300S)
+
+DIQ_I$DIQ300S[is.na(DIQ_I$DIQ300S)]<- mean(DIQ_I$DIQ300S, na.rm = TRUE)
+
+sqldf("select DIQ300D, count(*) from DIQ_I
+              group by DIQ300D")
+
+DIQ_I$DIQ300D[DIQ_I$DIQ300D ==7777] <-NA
+DIQ_I$DIQ300D[DIQ_I$DIQ300D ==9999] <-NA
+
+summary(DIQ_I$DIQ300D)
+plot(DIQ_I$DIQ300D)
+boxplot(DIQ_I$DIQ300D)
+hist(DIQ_I$DIQ300D)
+
+DIQ_I$DIQ300D[DIQ_I$DIQ300D ==251] <-NA
+DIQ_I$DIQ300D[is.na(DIQ_I$DIQ300D)]<- mean(DIQ_I$DIQ300D, na.rm = TRUE)
+
+sqldf("select DID310S, count(*) from DIQ_I
+              group by DID310S")
+DIQ_I$DID310S[DIQ_I$DID310S ==6666] <-NA
+DIQ_I$DID310S[DIQ_I$DID310S ==7777] <-NA
+DIQ_I$DID310S[DIQ_I$DID310S ==9999] <-NA
+
+summary(DIQ_I$DID310S)
+plot(DIQ_I$DID310S)
+boxplot(DIQ_I$DID310S)
+hist(DIQ_I$DID310S)
+
+DIQ_I$DID310S[is.na(DIQ_I$DID310S)]<- mean(DIQ_I$DID310S, na.rm = TRUE)
+
+sqldf("select DID310D, count(*) from DIQ_I
+              group by DID310D")
+DIQ_I$DID310D[DIQ_I$DID310D ==6666] <-NA
+DIQ_I$DID310D[DIQ_I$DID310D ==7777] <-NA
+DIQ_I$DID310D[DIQ_I$DID310D ==9999] <-NA
+
+summary(DIQ_I$DID310D)
+plot(DIQ_I$DID310D)
+boxplot(DIQ_I$DID310D)
+hist(DIQ_I$DID310D)
+
+DIQ_I$DID310D[is.na(DIQ_I$DID310D)]<- mean(DIQ_I$DID310D, na.rm = TRUE)
+
+sqldf("select DID320, count(*) from DIQ_I
+              group by DID320")
+DIQ_I$DID320[DIQ_I$DID320 ==5555] <-NA
+DIQ_I$DID320[DIQ_I$DID320 ==6666] <-NA
+DIQ_I$DID320[DIQ_I$DID320 ==7777] <-NA
+DIQ_I$DID320[DIQ_I$DID320 ==9999] <-NA
+
+summary(DIQ_I$DID320)
+plot(DIQ_I$DID320)
+boxplot(DIQ_I$DID320)
+hist(DIQ_I$DID320)
+
+DIQ_I$DID320[DIQ_I$DID320 ==360] <-NA
+DIQ_I$DID320[DIQ_I$DID320 ==520] <-NA
+DIQ_I$DID320[is.na(DIQ_I$DID320)]<- mean(DIQ_I$DID320, na.rm = TRUE)
+
+sqldf("select DID330, count(*) from DIQ_I
+              group by DID330")
+DIQ_I$DID330[DIQ_I$DID330 ==6666] <-NA
+DIQ_I$DID330[DIQ_I$DID330 ==7777] <-NA
+DIQ_I$DID330[DIQ_I$DID330 ==9999] <-NA
+
+summary(DIQ_I$DID330)
+plot(DIQ_I$DID330)
+boxplot(DIQ_I$DID330)
+hist(DIQ_I$DID330)
+
+DIQ_I$DID330[is.na(DIQ_I$DID330)]<- mean(DIQ_I$DID330, na.rm = TRUE)
+
+sqldf("select DID341, count(*) from DIQ_I
+              group by DID341")
+DIQ_I$DID341[DIQ_I$DID341 ==7777] <-NA
+DIQ_I$DID341[DIQ_I$DID341 ==9999] <-NA
+
+summary(DIQ_I$DID341)
+plot(DIQ_I$DID341)
+boxplot(DIQ_I$DID341)
+hist(DIQ_I$DID341)
+
+DIQ_I$DID341[is.na(DIQ_I$DID341)]<- mean(DIQ_I$DID341, na.rm = TRUE)
+
+sqldf("select DID350C, count(*) from DIQ_I
+              group by DID350C")
+
+summary(DIQ_I$DID350C)
+plot(DIQ_I$DID350C)
+boxplot(DIQ_I$DID350C)
+hist(DIQ_I$DID350C)
+
+DIQ_I$DID350C[is.na(DIQ_I$DID350C)]<- mean(DIQ_I$DID350C, na.rm = TRUE)
+
+sqldf("select DID060C, count(*) from DIQ_I
+              group by DID060C")
+
+summary(DIQ_I$DID060C)
+plot(DIQ_I$DID060C)
+boxplot(DIQ_I$DID060C)
+hist(DIQ_I$DID060C)
+
+DIQ_I$DID060C[is.na(DIQ_I$DID060C)]<- mean(DIQ_I$DID060C, na.rm = TRUE)
+
+sqldf("select DID260C, count(*) from DIQ_I
+              group by DID260C")
+
+summary(DIQ_I$DID260C)
+plot(DIQ_I$DID260C)
+boxplot(DIQ_I$DID260C)
+hist(DIQ_I$DID260C)
+
+DIQ_I$DID260C[is.na(DIQ_I$DID260C)]<- mean(DIQ_I$DID260C, na.rm = TRUE)
+
+#conts<-c('DID040','DID250','DIQ280', 'DIQ300S', 'DIQ300D', 'DID310S', 'DID310D', 'DID320', 'DID330', 
+'DID341', 'DID350C', 'DID260C', 'DID060')
+
+#Re-running some NA data checks:
+#is.na(DIQ_I)
+sum(is.na(DIQ_I))
+(colSums(is.na(DIQ_I)))
+
+head(DIQ_I)
+summary(DIQ_I)
+nrow(DIQ_I)
+ncol(DIQ_I)
+colnames(DIQ_I)
+str(DIQ_I)

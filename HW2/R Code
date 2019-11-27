@@ -1,27 +1,14 @@
 
-1. Create a new column “Enrollment group” in the table Phonecall
-Insert EnrollmentGroup=Clinical Alert :code is 125060000
-Insert EnrollmentGroup =Health Coaching :code is 125060001
-Insert EnrollmentGroup =Technixal Question: Code is 125060002
-Insert EnrollmentGroup =Administrative: Code  is 125060003
-Insert EnrollmentGroup =Other: Code  is 125060004
-Insert EnrollmentGroup =Lack of engagement : Code  is 125060005
-
-```{r}
 install.packages("tidyverse")
 install.packages("sqldf")
 install.packages("RODBC")
+
 library(tidyverse)
 library(sqldf)
 library("RODBC")
-```
 
-```{r}
-#Setting up ODBC connection
 myconn<-odbcConnect("dartmouth","dwuelfing","passwordgoeshere")
-```
 
-```{r}
 #Copying tables to manipulate
 sqlQuery(myconn,"select * into [dwuelfing].phonecall from [qbs181].dbo.phonecall")
 sqlQuery(myconn,"select * into [dwuelfing].phonecall_encounter from [qbs181].dbo.phonecall_encounter")
@@ -54,21 +41,11 @@ end")
 #Saving table results to a data frame, to easily display results in R!
 EnrollmentGroups<-sqlQuery(myconn,"select EnrollmentGroup, * from dwuelfing.phonecall")
 head(EnrollmentGroups,10)
-```
-
-2. Obtain the # of records for each enrollment group
-```{r}
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 
 #Saving counts of each enrollment type to a data frame in R
 EnrollmentGroupCounts<-sqlQuery(myconn, "select EnrollmentGroup,  RecordsCount = count(*) from dwuelfing.phonecall
 where Enrollmentgroup <> '' group by EnrollmentGroup order by 1 asc")
 head(EnrollmentGroupCounts, 10)
-```
-
-3. Merge the Phone call encounter table with Call duration table.
-```{r}
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 
 #SQL join on phonecall_encounter and callduration
 joinedresult<-sqlQuery(myconn, "
@@ -76,14 +53,10 @@ select A.*, B.* from PhoneCall_Encounter A
 inner join CallDuration B 
 on A.customerid = B.tri_CustomerIDEntityReference")
 head(joinedresult,10)
-```
-
-4.Find out the # of records for different call outcomes and call type. Use 1-Inbound and 2-Outbound, for call types; use 1-No response,2-Left voice mail and 3 successful. Please also find the call duration for each of the enrollment groups 
-```{r}
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 
 #Joined phonecall and callduration tables in SQL and saved them into a data frame in R
-Callsummary<-sqlQuery(myconn, "select  B.Calltype, CallTypeCount = count(B.Calltype), B.CallOutcome, OutcomeCount= count(B.calloutcome), 
+Callsummary<-sqlQuery(myconn, "select  B.Calltype, CallTypeCount = count(B.Calltype), B.CallOutcome, 
+OutcomeCount= count(B.calloutcome), 
 AvgCallDuration = Avg(CAST(B.CallDuration as int))
 from [dwuelfing].phonecall A
 inner join [dwuelfing].CallDuration B
@@ -91,21 +64,14 @@ on A.tri_CustomerIDEntityReference = B.tri_CustomerIDEntityReference
 and A.CallDuration = B.CallDuration
 group by B.calloutcome, B.calltype
 Order by 1,3")
-```
 
-```{r}
 #Updated labels for call types and call outcomes in R
-
 Callsummary$Calltype<- ifelse(Callsummary$Calltype == 1,"Inbound","Outbound")
-Callsummary$CallOutcome<- ifelse(Callsummary$CallOutcome == 1,"No Response",ifelse(Callsummary$CallOutcome ==2, "Left Voicemail", "Successful"))
+Callsummary$CallOutcome<- ifelse(Callsummary$CallOutcome == 1,"No Response",ifelse(Callsummary$CallOutcome ==2, 
+"Left Voicemail", "Successful"))
 
 #called head to show results!
 head(Callsummary)
-
-```
-5. Merge the tables Demographics, Conditions and TextMessages. 
-```{r}
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 
 #Joined Demographics, Conditions and TextMessages tables in SQL
 joined<-sqlQuery(myconn,
@@ -113,45 +79,29 @@ joined<-sqlQuery(myconn,
 inner join conditions C on 
 T.tri_contactid = C.tri_patientid
 inner join Demographics D on T.tri_contactid = D.contactid")
-```
-```{r}
+
 #saved to data frame to show joined table results
 head(joined,10)
-```
-
-
-Find the # of texts/per week, by the type of sender. Draw a visual using ggplot to obtain # of texts and color it by the type of sender
-```{r}
 
 #Added a Week column in TextMessages table to facilitate text per week comparison
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 sqlQuery(myconn, "alter table [dwuelfing].Textmessages
 add  Week nvarchar(50)
 select * from [dwuelfing].Textmessages")
 
 #Populated new Week column to display which week each text was sent in (Week 0 is 3/1/16, the date of the first text sent)
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 sqlQuery(myconn, "Update dwuelfing.TextMessages set Week = 
 datediff(ww, '3/1/16', textsentdate)")
 
 #wrote my SQL query into a data frame in R so I can show 10 results and plot.
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 textsperweek<-sqlQuery(myconn,
 "select SenderName = sendername, Week, NumberofTexts=count(tri_contactid) from dwuelfing.textmessages T
 group by week, sendername
 order by 2")
 head(textsperweek,10)
-```
-
-```{r}
-myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 
 ggplot(data=textsperweek, aes(x=Week, y=NumberofTexts, color=SenderName)) +
   geom_bar(stat="identity", fill="White")
-```
 
-6. Obtain the count of texts based on the chronic condition over a period of time (say per week). Draw a visual using ggplot to obtain the counts
-```{r}
 #filtered in SQL to look at just texts associated with patients who had diabetes, and saved to a data frame in R
 diabetestextsperweek<-sqlQuery(myconn,
 "select SenderName = sendername, Week, NumberofTexts=count(tri_contactid) from dwuelfing.textmessages where tri_contactid in
@@ -159,12 +109,8 @@ diabetestextsperweek<-sqlQuery(myconn,
 group by week, sendername
 order by 2")
 head(diabetestextsperweek,10)
-```
-Visual:
-```{r}
+
+#Visual:
 myconn<-odbcConnect("dartmouth","dwuelfing","dwuelfing@qbs181")
 ggplot(data=diabetestextsperweek, aes(x=Week, y=NumberofTexts, color=SenderName)) +
   geom_bar(stat="identity", fill="White")
-```
-
-

@@ -1,13 +1,5 @@
 Data Wrangling QBS 181
 Homework 1
-	
-Instructions:
-Print random 10 rows to show these changes. Please also include the code
-Insert the answers directly into this document.
-You may collaborate on the homework but you must write it up yourselves.
-Please save the files in this format:
-Name of the file should be username(database)_HW1_QBS181
-Submit it via Canvas.				
 
 Rename all the columns for eg.,
 TriAge to Age
@@ -27,7 +19,9 @@ exec sp_rename '[dwuelfing].demographics.parentcustomeridname' , 'Affiliation', 
 exec sp_rename '[dwuelfing].demographics.Tri_ImagineCareenrollmentstatus' , ‘Enrollment_Status', ‘COLUMN’
 exec sp_rename '[dwuelfing].demographics.Tri_EnrollmentCompleteDate' , 'CompleteDate', 'COLUMN'
 
-Calculate the time (in days) to complete enrollment and create a new column to have this data  I did this in three parts: query, add new column, update new column.
+Calculate the time (in days) to complete enrollment and create a new column to have this data.
+
+I did this in three parts: query, add new column, update new column.
 
 SELECT DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate)) FROM dwuelfing.demographics
 where EmailSentDate <> 'NULL' and CompleteDate <> ‘NULL'
@@ -54,7 +48,8 @@ Insert Status= Incomplete Enrollments: Code  is 167410002
 Insert Status= Opted Out: Code  is 167410003
 Insert Status= Unprocessed: Code  is 167410000
 Insert Status= Second email sent : Code  is 167410006
-I created a new car char column (above) and then converted my original column to be an nvarchar (below), and finally updated the values in the new column based off the values in my original column.
+I created a new car char column (above) and then converted my original column to be an nvarchar (below), 
+and finally updated the values in the new column based off the values in my original column.
 
 ALTER TABLE [dwuelfing].demographics
 ALTER COLUMN Enrollment_Status int;
@@ -88,7 +83,8 @@ when gender = 167410000 then 'Other'
 when gender IS NULL then 'Unknown'
 end
 
-Create a new column “Age group” and create age groups with an interval of 25 yrs. for example 0-25 years as ‘0-25’, 26-50 as “26-50” and so on...
+Create a new column “Age group” and create age groups with an interval of 25 yrs. 
+For example 0-25 years as ‘0-25’, 26-50 as “26-50” and so on...
     
 Alter table [dwuelfing].demographics
 Add AgeGroup nvarchar(50)
@@ -99,4 +95,3 @@ when Age between 26 and 50 then '26-50'
 when Age between 51 and 75 then '51-75'
 when Age between 76 and 100 then '76-100'
 end
-

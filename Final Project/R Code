@@ -3,12 +3,16 @@ install.packages("sqldf")
 install.packages("RODBC")
 install.packages("mltools")
 install.packages("data.table")
+install.packages("tidyr")
+install.packages("dplyr")
 
 library(tidyverse)
 library(sqldf)
 library("RODBC")
 library(mltools)
 library(data.table)
+library(tidyr)
+library(dplyr)
 
 #Reading the ImagineCare blood pressure data set into R
 bp<- read.csv("IC_BP_v2.csv")
@@ -119,20 +123,19 @@ as ChangeinDiastolic,
 BaselineBPStatus-FinalBPStatus as ChangeinBPStatus
 from dwuelfing.Combinedbp")
 
-sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as ChangeinDiastolic, 
+sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as 
+ChangeinDiastolic, 
 FinalBPStatus-BaselineBPStatus as ChangeinBPStatus
 from  dwuelfing.Combinedbp
 where FinalBPStatus-BaselineBPStatus=1
 order by 4 desc")
 
-sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as ChangeinDiastolic, 
+sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as 
+ChangeinDiastolic, 
 FinalBPStatus-BaselineBPStatus as ChangeinBPStatus
 from  dwuelfing.Combinedbp
 where FinalBPStatus-BaselineBPStatus >0
 order by 4 desc")
-
-library(tidyr)
-library(dplyr)
 
 Conditions<- sqlQuery(myconn,"select * from Conditions")
 Demographics<- sqlQuery(myconn,"select * from Demographics")

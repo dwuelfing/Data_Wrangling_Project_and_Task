@@ -1,0 +1,178 @@
+install.packages("tidyverse")
+install.packages("sqldf")
+install.packages("RODBC")
+install.packages("mltools")
+install.packages("data.table")
+
+library(tidyverse)
+library(sqldf)
+library("RODBC")
+library(mltools)
+library(data.table)
+
+#Reading the ImagineCare blood pressure data set into R
+bp<- read.csv("IC_BP_v2.csv")
+head(bp[,c(1,5,2:4)],10)
+str(bp)
+levels(bp$BPAlerts)
+colSums(is.na(bp))
+
+hist(bp$SystolicValue)
+hist(bp$Diastolicvalue)
+boxplot(bp$SystolicValue)
+boxplot(bp$Diastolicvalue)
+
+bp$ObservedTime<- as.Date(bp$ObservedTime, origin = "1899-12-30")
+head(bp[,c(1,5,2:4)],10)
+
+#Setting up ODBC connection
+myconn<-odbcConnect("dartmouth","dwuelfing","passwordgoeshere")
+
+#Writing blood pressure data frame into a SQL table for SQL manipulation.  
+#I will need to reformat the date format into something SQL accepts.
+bp$ObservedTime<- as.character(bp$ObservedTime)
+sqlSave(myconn,bp, tablename = "dwuelfing.bp",rownames=FALSE)
+sqlQuery(myconn,"select top(10) * from dwuelfing.bp")
+
+sqlQuery(myconn,"exec sp_rename '[dwuelfing].bp.BPalerts' , 'BPStatus', 'COLUMN'")
+sqlQuery(myconn,"select top(10) * from dwuelfing.bp")
+
+#Step 1 - Update BP Status to reflect Controlled or Uncontrolled status, based on guidelines.
+sqlQuery(myconn,"Update dwuelfing.bp
+Set BPStatus = 
+CASE WHEN BPStatus = 'Hypo1' THEN  'Controlled' 
+WHEN BPStatus = 'Normal' THEN 'Controlled' 
+WHEN  BPStatus = 'HTN1' THEN 'Uncontrolled' 
+WHEN  BPStatus = 'Hypo2' THEN 'Uncontrolled' 
+WHEN  BPStatus = 'HTN2' THEN 'Uncontrolled' 
+WHEN  BPStatus = 'HTN3' THEN 'Uncontrolled' 
+END")
+sqlQuery(myconn,"select top(10) * from dwuelfing.bp")
+
+#Step 2 - Update BPStatus to  1 or 0 (Dichotomous Outcomes)
+sqlQuery(myconn,"Update dwuelfing.bp
+Set BPStatus = 
+CASE WHEN BPStatus = 'Controlled' THEN  '1' 
+WHEN BPStatus = 'Uncontrolled' THEN '0' 
+END")
+sqlQuery(myconn,"select top(10) * from dwuelfing.bp")
+
+sqlQuery(myconn,"select BPStatus, count(ID) as Counts 
+         from dwuelfing.bp
+         group by BPStatus")
+
+sqlQuery(myconn,"delete from dwuelfing.bp
+where BPStatus IS NULL")
+
+sqlQuery(myconn,"select A.*, B.* into dwuelfing.bpdemo
+from Demographics A
+join dwuelfing.bp B 
+on B.ID = A.contactid")
+
+sqlQuery(myconn,"select top(10) ID, tri_enrollmentcompletedate, * 
+         from dwuelfing.bpdemo")
+
+sqlQuery(myconn,"ALTER TABLE [dwuelfing].bp
+ALTER COLUMN BPStatus float;")
+
+sqlQuery(myconn,"select [ID], avg(SystolicValue)  as SystolicAvg, 
+avg(DiastolicValue) as DiastolicAvg, 
+round(avg(bpstatus),2)*100 as PctNormalReadings
+from dwuelfing.bp 
+group by [ID]")
+
+sqlQuery(myconn,"select ID, min(observedtime) as InitialReading, max(observedtime) as FinalReading 
+into  dwuelfing.IntialandFinalDates 
+from dwuelfing.bp
+group by ID")
+
+sqlQuery(myconn,"select * from  dwuelfing.IntialandFinalDates")
+
+sqlQuery(myconn,"select A.ID, avg(A.SystolicValue) as BaselineSystolic, avg(A.Diastolicvalue) as BaselineDiastolic, 
+avg(A.BPStatus) as BaselineBPStatus, min(B.InitialReading) as BaselineDate 
+into dwuelfing.BaselinebpValues
+from dwuelfing.bp A
+inner join dwuelfing.IntialandFinalDates B
+on A.Id = B.ID
+where A.ObservedTime = B.InitialReading
+group by A.ID")
+sqlQuery(myconn,"select top(10) * from dwuelfing.BaselinebpValues")
+
+sqlQuery(myconn,"select A.ID, avg(A.SystolicValue) as FinalSystolic, avg(A.Diastolicvalue) as FinalDiastolic, 
+avg(A.BPStatus) as FinalBPStatus, max(B.FinalReading) as FinalDate 
+into dwuelfing.FinalbpValues
+from dwuelfing.bp A
+inner join dwuelfing.IntialandFinalDates B
+on A.Id = B.ID
+where A.ObservedTime = B.FinalReading
+group by A.ID")
+sqlQuery(myconn,"select top(10) * from dwuelfing.FinalbpValues")
+
+sqlQuery(myconn,"Select A.*, B.FinalSystolic, B.FinalDiastolic, B.FinalBPStatus, B.FinalDate 
+into dwuelfing.Combinedbp
+from dwuelfing.BaselinebpValues A
+join dwuelfing.FinalbpValues B
+on A.ID = B.ID")
+
+sqlQuery(myconn,"select ID, BaselineSystolic-FinalSystolic as ChangeinSystolic, BaselineDiastolic-FinalDiastolic 
+as ChangeinDiastolic,
+BaselineBPStatus-FinalBPStatus as ChangeinBPStatus
+from dwuelfing.Combinedbp")
+
+sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as ChangeinDiastolic, 
+FinalBPStatus-BaselineBPStatus as ChangeinBPStatus
+from  dwuelfing.Combinedbp
+where FinalBPStatus-BaselineBPStatus=1
+order by 4 desc")
+
+sqlQuery(myconn,"select ID, FinalSystolic-BaselineSystolic as ChangeinSystolic, FinalDiastolic-BaselineDiastolic as ChangeinDiastolic, 
+FinalBPStatus-BaselineBPStatus as ChangeinBPStatus
+from  dwuelfing.Combinedbp
+where FinalBPStatus-BaselineBPStatus >0
+order by 4 desc")
+
+library(tidyr)
+library(dplyr)
+
+Conditions<- sqlQuery(myconn,"select * from Conditions")
+Demographics<- sqlQuery(myconn,"select * from Demographics")
+TextMessages<- sqlQuery(myconn,"select * from TextMessages")
+
+head(Conditions,10)
+head(Demographics,10)
+head(TextMessages,10)
+
+#Rename the key column to "contactid", so it can match the key column in the Conditions table, 
+#then extract only the distinct contactid values.
+names(Conditions)<- c("contactid", "tri_name")
+Conditions<-Conditions %>% arrange(tri_name)
+Conditions<-distinct(Conditions, contactid, .keep_all = TRUE)
+head(Conditions,10)
+
+merge1<-merge(Conditions,Demographics)
+head(merge1,10)
+#Rename the key column to "contactid", so it can match the key column in the preveiously merged table, 
+#reformat the date column from the SQL format, and extract only one text message per patient by filtering 
+#down to the max date of the sent date        column 
+names(TextMessages)<- c("contactid", "Sender", "TextSentDate")
+TextMessages$TextSentDate<- as.Date(TextMessages$TextSentDate, "%m/%d/%y")
+TextMessages<- TextMessages %>%
+  group_by (contactid) %>%
+  summarize (max(TextSentDate))
+
+merge2<-merge(merge1, TextMessages)
+head(merge2,10)
+
+head(merge2[,c(1,12,13,9)],10)
+
+sqlQuery(myconn,"select tri_contactId, max(textsentdate) as TextSendDate into dwuelfing.TextMessageDates
+from textmessages 
+group by tri_contactId")
+
+sqlQuery(myconn,"select distinct B.tri_patientid, A.*, B.*, T.* from Demographics A
+join Conditions B
+on A.contactid = B.tri_patientid
+join dwuelfing.TextMessageDates T 
+on A.contactid = T.tri_contactid")
+
+odbcCloseAll()

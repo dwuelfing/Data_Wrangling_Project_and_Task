@@ -1,14 +1,3 @@
-Data Wrangling QBS 181
-Homework 1
-
-Rename all the columns for eg.,
-TriAge to Age
-GenderCode to Gender
-ContactID to ID
-Address1Stateorprovince to State
-TriImagineCareenrollmentemailsentdate to EmailSentdate
-Trienrollmentcompletedate to Completedate
-
 exec sp_rename '[dwuelfing].demographics.tri_age' , 'Age', 'COLUMN'
 exec sp_rename '[dwuelfing].demographics.gendercode' , 'Gender', 'COLUMN'
 exec sp_rename '[dwuelfing].demographics.contactid' , 'ID', 'COLUMN'
@@ -18,10 +7,6 @@ exec sp_rename '[dwuelfing].demographics.Trienrollmentcompletedate' , 'CompleteD
 exec sp_rename '[dwuelfing].demographics.parentcustomeridname' , 'Affiliation', 'COLUMN'
 exec sp_rename '[dwuelfing].demographics.Tri_ImagineCareenrollmentstatus' , ‘Enrollment_Status', ‘COLUMN’
 exec sp_rename '[dwuelfing].demographics.Tri_EnrollmentCompleteDate' , 'CompleteDate', 'COLUMN'
-
-Calculate the time (in days) to complete enrollment and create a new column to have this data.
-
-I did this in three parts: query, add new column, update new column.
 
 SELECT DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate)) FROM dwuelfing.demographics
 where EmailSentDate <> 'NULL' and CompleteDate <> ‘NULL'
@@ -36,7 +21,6 @@ Update [dwuelfing].demographics
 Set DaysToEnrollment = DATEDIFF(d, try_convert(date, EmailSentDate),  try_convert(date, CompleteDate))
 where EmailSentDate <> 'NULL' and CompleteDate <> 'NULL'
 
-Create a new column “Enrollment Status” 
 ALTER TABLE [dwuelfing].demographics
   ADD EnrollmentStatus nvarchar(50)
 
@@ -48,8 +32,6 @@ Insert Status= Incomplete Enrollments: Code  is 167410002
 Insert Status= Opted Out: Code  is 167410003
 Insert Status= Unprocessed: Code  is 167410000
 Insert Status= Second email sent : Code  is 167410006
-I created a new car char column (above) and then converted my original column to be an nvarchar (below), 
-and finally updated the values in the new column based off the values in my original column.
 
 ALTER TABLE [dwuelfing].demographics
 ALTER COLUMN Enrollment_Status int;
@@ -67,11 +49,6 @@ WHEN Enrollment_Status = '1674100002' THEN 'Unprocessed'
 WHEN Enrollment_Status = '167410006' THEN 'Second email sent' 
 END 
 
-Create a new Column “Sex”
-Insert sex=female if code=2
-Insert sex=male if code=1
-Insert sex=other if code =167410000
-Insert sex=Unknown if code =’NULL’
 Alter table [dwuelfing].demographics
 Add Sex nvarchar(50)
 
@@ -83,9 +60,6 @@ when gender = 167410000 then 'Other'
 when gender IS NULL then 'Unknown'
 end
 
-Create a new column “Age group” and create age groups with an interval of 25 yrs. 
-For example 0-25 years as ‘0-25’, 26-50 as “26-50” and so on...
-    
 Alter table [dwuelfing].demographics
 Add AgeGroup nvarchar(50)
     update dwuelfing.demographics

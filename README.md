@@ -2,7 +2,7 @@
 Projects and homework assignments for QBS-181 Data Wrangling Course.
 
 ## Overview:
-This repository contains homework, midterm, and final assignments for the QBS-181 Data Wrangling Course for Fall 2019.
+This repository contains homework, midterm, and final assignments for the QBS-181 Data Wrangling Course of Fall 2019.
 
 ## Privacy:
 I have been given the permission to make my work public! 
@@ -12,3 +12,7 @@ I have been given the permission to make my work public!
 * HW2 contains my code from the second homework assignment.  It primarily focuses on SQL joins and ggplot basics.
 * Midterm contains the code from my midterm assignment.  It includes fundamental data wrangling techniques, like one-hot encoding and mean imputation.
 * Final contains the code from my final exam.  It includes fundamental data wrangling techniques in R and SQL using an RODBC connection.
+
+## Languages:
+* R
+* SQL

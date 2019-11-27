@@ -1,4 +1,4 @@
-# Data_Wrangling_Project_and_Task
+# Data Wrangling Projects & Assignments
 Projects for QBS-181 Data Wrangling Course
 
 # Overview:

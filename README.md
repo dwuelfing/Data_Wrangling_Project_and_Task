@@ -1,5 +1,5 @@
-# Data Wrangling Projects & Assignments
-Projects for QBS-181 Data Wrangling Course
+# Data Wrangling Projects
+Projects and homework assignments for QBS-181 Data Wrangling Course.
 
 # Overview:
 This repository contains homework, midterm, and final assignments for the QBS-181 Data Wrangling Course for Fall 2019.
